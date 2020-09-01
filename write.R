@@ -7,6 +7,7 @@ source("list.R")
 source("aalto.R")
 source("hy.R")
 source("oulu.R")
+source("tampere.R")
 
 key <- Sys.getenv("airtableKey")
 
@@ -38,4 +39,6 @@ events <- list_event_pages()
 write_aalto_event_records()
 write_hy_event_records()
 write_oulu_event_records()
+write_tampere_event_records()
+
 
