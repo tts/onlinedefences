@@ -1,10 +1,12 @@
 library(httr)
 library(rvest)
 library(tidyverse)
+library(lubridate)
 
 source("list.R")
 source("aalto.R")
 source("hy.R")
+source("oulu.R")
 
 key <- Sys.getenv("airtableKey")
 
@@ -35,4 +37,5 @@ make_body <- function(title, link, date, university, id){
 events <- list_event_pages()
 write_aalto_event_records()
 write_hy_event_records()
+write_oulu_event_records()
 
