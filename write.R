@@ -12,6 +12,7 @@ source("turku.R")
 source("jyu.R")
 source("lappi.R")
 source("abo.R")
+source("hanken.R")
 
 key <- Sys.getenv("airtableKey")
 
@@ -48,6 +49,7 @@ write_turku_event_records()
 write_jyu_event_records()
 write_lappi_event_records()
 write_abo_event_records()
+write_hanken_event_records()
 
 
 
