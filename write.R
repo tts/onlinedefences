@@ -9,6 +9,7 @@ source("hy.R")
 source("oulu.R")
 source("tampere.R")
 source("turku.R")
+source("jyu.R")
 
 key <- Sys.getenv("airtableKey")
 
@@ -42,5 +43,6 @@ write_hy_event_records()
 write_oulu_event_records()
 write_tampere_event_records()
 write_turku_event_records()
+write_jyu_event_records()
 
 
