@@ -4,9 +4,10 @@ library(rvest)
 library(tidyverse)
 library(lubridate)
 
-
 source("list.R")
 
+# Taideyliopisto, Lappeenrannan–Lahden teknillinen yliopisto LUT
+# and Maanpuolustuskorkeakoulu do not have future online defences ATM
 source("aalto_polite.R")
 source("hy.R") # RSS feed
 source("oulu_polite.R")
@@ -41,7 +42,6 @@ make_body <- function(title, link, date, university, id){
   return(body)
   
 }
-
 
 # 1. Delete all old event records from the base (TO DO),
 # 2. Populate it with new ones generated next
