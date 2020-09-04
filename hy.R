@@ -1,5 +1,6 @@
 write_hy_event_records <- function() {
   
+    # RSS feed
     hy <- events %>% 
       filter(fields.Yliopisto == 'Helsingin yliopisto') %>% 
       select(fields.URL)
@@ -43,30 +44,6 @@ write_hy_event_records <- function() {
       filter(!is.na(link))
     
     
-    for(i in 1:nrow(diss_online_events)) {
-      
-      httr::POST(
-        
-        url = "https://api.airtable.com/v0/appd2NiVv18KsG49j/Events",
-        
-        httr::add_headers(
-          `authorization` = sprintf("Bearer %s", key)
-        ),
-        
-        encode = "json",
-        
-        httr::content_type_json(), 
-        
-        body = make_body(diss_online_events[i, "title"], 
-                         diss_online_events[i, "link"], 
-                         diss_online_events[i, "date"],
-                         diss_online_events[i, "university"],
-                         diss_online_events[i, "id"]),
-        
-        httr::verbose()
-        
-      )
-      
-    }
+   post_it(diss_online_events)
 }
     
