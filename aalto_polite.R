@@ -10,8 +10,7 @@ write_aalto_event_records <- function() {
                  user_agent = "sonkkilat@gmail.com")
   
   nodes <- scrape(session) %>% 
-    html_nodes(xpath = "//div[@class='aalto-listing-row__content-column']")
-  
+    html_nodes(xpath = "//div[@class='aalto-listing-row aalto-listing-row--event']")
   
   df <- map_df(nodes, function(item) {
     
@@ -20,7 +19,7 @@ write_aalto_event_records <- function() {
                                  html_node(xpath = "descendant::a[@class='aalto-listing-row__link']") %>% 
                                  html_attr("href")),
                person = str_squish(item %>% 
-                                     html_node(xpath = "descendant::a[@class='aalto-listing-row__link']/span") %>% 
+                                     html_node(xpath = "descendant::h2[@class='aalto-listing-row__title']") %>% 
                                      html_text()),
                title = str_squish(item %>% 
                                     html_node(xpath = "descendant::div[@class='aalto-listing-row__summary']") %>% 
@@ -79,31 +78,6 @@ write_aalto_event_records <- function() {
     rename(title = title_person) %>% 
     mutate(title = gsub('["”“]', '', title))
   
-  
-  for(i in 1:nrow(df_links_tidy)) {
-    
-    httr::POST(
-      
-      url = "https://api.airtable.com/v0/appd2NiVv18KsG49j/Events",
-      
-      httr::add_headers(
-        `authorization` = sprintf("Bearer %s", key)
-      ),
-      
-      encode = "json",
-      
-      httr::content_type_json(), 
-      
-      body = make_body(df_links_tidy[i, "title"], 
-                       df_links_tidy[i, "link"], 
-                       df_links_tidy[i, "date"],
-                       df_links_tidy[i, "university"],
-                       df_links_tidy[i, "id"]),
-      
-      httr::verbose()
-      
-    )
-    
-  }
+  post_it(df_links_tidy)
   
 }
