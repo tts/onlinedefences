@@ -4,7 +4,7 @@ library(rvest)
 library(tidyverse)
 library(lubridate)
 
-source("list.R")
+source("functions.R")
 
 # Taideyliopisto, Lappeenrannan–Lahden teknillinen yliopisto LUT
 # and Maanpuolustuskorkeakoulu do not have future online defences ATM
@@ -20,33 +20,16 @@ source("hanken_polite.R")
 source("uef_polite.R")
 
 key <- Sys.getenv("airtableKey")
+airtablebase_events <- "https://api.airtable.com/v0/appd2NiVv18KsG49j/Events"
+airtablebase_sites <- "https://api.airtable.com/v0/appZhwU09LO6Hcr8F/Imported%20table?fields%5B%5D=Yliopisto&fields%5B%5D=URL&view=Grid%20view"
 year_now <- year(Sys.Date())
 
-# POST args
-make_body <- function(title, link, date, university, id){
-  
-  list(
-    records = list(
-      list(
-        fields = list(
-          Title = title,
-          URL = link,
-          Date = date,
-          University = university,
-          Info = id
-        )
-      )
-    )
-  ) -> body
-  
-  return(body)
-  
-}
+# Fetch event page URL's
+events <- list_event_pages()
 
 # 1. Delete all old event records from the base (TO DO),
-# 2. Populate it with new ones generated next
-
-events <- list_event_pages()
+#    either via GUI or programmatically
+# 2. Populate the base with new records generated below
 
 write_aalto_event_records()
 write_hy_event_records()
