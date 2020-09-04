@@ -65,30 +65,6 @@ write_tampere_event_records <- function() {
     select(-person, -link_future)
   
   
-  for(i in 1:nrow(df_tidy)) {
-    
-    httr::POST(
-      
-      url = "https://api.airtable.com/v0/appd2NiVv18KsG49j/Events",
-      
-      httr::add_headers(
-        `authorization` = sprintf("Bearer %s", key)
-      ),
-      
-      encode = "json",
-      
-      httr::content_type_json(), 
-      
-      body = make_body(df_tidy[i, "title"], 
-                       df_tidy[i, "link"], 
-                       df_tidy[i, "date"],
-                       df_tidy[i, "university"],
-                       df_tidy[i, "id"]),
-      
-      httr::verbose()
-      
-    )
-    
-  }
+  post_it(df_tidy)
   
 }
