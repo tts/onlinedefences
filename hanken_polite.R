@@ -40,30 +40,33 @@ write_hanken_event_records <- function() {
   df <- df %>% 
     filter(str_detect(title, "[dD]isputation"))
   
-  for (i in 1:nrow(df)) {
+  df_res <- df %>% 
     
-    url <- paste0("https://www.hanken.fi", df[i, "id"])
-    
-    page <- nod(session, url) 
-    
-    person <- scrape(page) %>% 
-      html_node(xpath = "descendant::p/descendant::strong") %>% 
-      html_text()
-    
-    content <- scrape(page) %>% 
-      html_text()
-    
-    title <- str_match(content, "Avhandlingsmanuskriptets titel: (.*)")[1]
-    
-    # ATM there are no active links. Only one mention about a Teams session to come
-    df[i, "link"] <- "https://to.be.announced"
-    
-    df[i, "title_long"] <- title
-    
-  }
+    pmap_dfr(function(...) {
+      current <- tibble(...)
+      url <- paste0("https://www.hanken.fi", current$id)
+      
+      page <- nod(session, url) 
+      
+      # TO DO check this when there are more cases
+      person_scraped <- scrape(page) %>% 
+        html_node(xpath = "descendant::p/descendant::strong") %>% 
+        html_text()
+      
+      content <- scrape(page) %>% 
+        html_text()
+      
+      title_scraped <- str_match(content, "Avhandlingsmanuskriptets titel: (.*)")[1]
+      
+      current %>% 
+        mutate(title_long = title_scraped,
+               link = "https://to.be.announced",
+               person = person_scraped)
+      
+      
+    })
   
-  
-  df_tidy <- df %>% 
+  df_tidy <- df_res %>% 
     mutate(id = paste0("https://www.hanken.fi", id),
            title_long = gsub("Avhandlingsmanuskriptets titel: ", "", title_long),
            title_person = paste0(title, " : ", title_long),
@@ -86,9 +89,10 @@ write_hanken_event_records <- function() {
            date = as.Date(date, "%d.%m.%Y"),
            datetime = as.POSIXct(paste(date, time), format="%Y-%m-%d %H:%M:%S"),
            datetime = as_datetime(datetime, tz = "UTC")) %>% 
-    select(-title, -title_long, -person, -date_day, -date, -date_month, -time, -month_from_date_month) %>% 
+    select(-title, -date) %>% 
     rename(title = title_person,
-           date = datetime) 
+           date = datetime) %>% 
+    select(university, id, title, date, link)
   
   
   post_it(df_tidy)
