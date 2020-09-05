@@ -32,44 +32,41 @@ write_abo_event_records <- function() {
                stringsAsFactors=FALSE)
     
   })
+
   
-  
-  for (i in 1:nrow(df)) {
+  df_res <- df %>% 
     
-    url <- df[i, "id"]
-    
-    page <- nod(session, url)
-    
-    person <- scrape(page) %>% 
-      html_node(xpath = "descendant::p/descendant::strong") %>% 
-      html_text()
-    
-    title <- scrape(page) %>% 
-      html_node(xpath = "descendant::p/descendant::em/descendant::strong") %>% 
-      html_text()
-    
-    content <- scrape(page) %>% 
-      html_text()
-    
-    # ATM all are streamed via this 
-    link <- str_extract(content, "https://aboakademi.zoom.us[^\\s]+")
-    
-    if(!is.na(link)) {
-      df[i, "link"] <- link
-    } else {
-      df[i, "link"] <- NA # so not online at all we assume
-    }
-    
-    df[i, "title_long"] <- title
-    df[i, "person"] <- person
-    
-  }
-  
-  df <- df %>% 
+    pmap_dfr(function(...) {
+      current <- tibble(...)
+      url <- current$id
+      page <- nod(session, url)
+      
+      person_scraped <- scrape(page) %>% 
+        html_node(xpath = "descendant::p/descendant::strong") %>% 
+        html_text()
+      
+      title_scraped <- scrape(page) %>% 
+        html_node(xpath = "descendant::p/descendant::em/descendant::strong") %>% 
+        html_text()
+      
+      content <- scrape(page) %>% 
+        html_text()
+      
+      # ATM all are streamed via this 
+      link_scraped <- str_extract(content, "https://aboakademi.zoom.us[^\\s]+")
+      
+      current %>% 
+        mutate(link = ifelse(!is.na(link_scraped), link_scraped, NA),
+               title_long = title_scraped,
+               person = person_scraped)
+    })
+      
+ 
+  df_res_links <- df_res %>% 
     filter(!is.na(link))
   
   
-  df_tidy <- df %>% 
+  df_tidy <- df_res_links %>% 
     mutate(title_person = paste0(title, ", ", str_squish(person), " : ", title_long),
            time = paste0(str_extract(time, "\\s[0-9]*\\.[0-9]*"), ":00"),
            time = gsub("\\.", ":", time),
