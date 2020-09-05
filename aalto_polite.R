@@ -42,25 +42,24 @@ write_aalto_event_records <- function() {
   
   # If the link is not given on the start page, look for it from the page of the event
   # ATM, all Aalto defences will be online
-  for (i in 1:nrow(df_nolink)) {
+  df_nolink_res <- df_nolink %>% 
     
-    url <- paste0("https://www.aalto.fi", df_nolink[i, "id"])
-    
-    page <- nod(session, url) 
+    # https://blog.az.sg/posts/map-and-walk/
+    pmap_dfr(function(...) {
+      current <- tibble (...)
+      url <- paste0("https://www.aalto.fi", current$id)
+      page <- nod(session, url)
+      
+      l <- scrape(page) %>% 
+        html_nodes(xpath = "//div[@class='paragraph paragraph--type--text-text paragraph--view-mode--default']//descendant::a[contains(@href, 'zoom')]") %>% 
+        html_attr("href")
+      
+      current %>% 
+        mutate(link = ifelse(length(l) > 0, l, "https://to.be.announced"))
+      
+    })
   
-    l <- scrape(page) %>% 
-      html_nodes(xpath = "//div[@class='paragraph paragraph--type--text-text paragraph--view-mode--default']//descendant::a[contains(@href, 'zoom')]") %>% 
-      html_attr("href")
-    
-    if(length(l) > 0) {
-      df_nolink[i, "link"] <- l
-    } else {
-      df_nolink[i, "link"] <- "https://to.be.announced"
-    }
-    
-  }
-  
-  df_links <- rbind(df_nolink, df_withlink)
+  df_links <- rbind(df_nolink_res, df_withlink)
   
   df_links_tidy <- df_links %>% 
     mutate(title = gsub("The title of the dissertation is ", "", title),
