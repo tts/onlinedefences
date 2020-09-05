@@ -26,8 +26,7 @@ write_jyu_event_records <- function() {
                                     html_node(xpath = "descendant::a") %>% 
                                     html_text()),
                link = NA,
-               # If this contains 'online' etc, parse the link from the event page (if available)
-               link_future = str_squish(item %>% 
+               link_text = str_squish(item %>% 
                                           html_node(xpath = "descendant::p[@class='location']/span[last()]") %>% 
                                           html_text() %>% 
                                           tolower()),
@@ -38,12 +37,11 @@ write_jyu_event_records <- function() {
     
   })
   
-  df_all <- df_all %>% 
-    mutate(link = str_extract(link_future, "http[s]?://[^\\s]+")) 
-  
   df <- df_all %>% 
-    filter(!is.na(link) | (str_detect(link_future, "online") | str_detect(tolower(link_future), "verkkovälitteinen")
-                           | str_detect(link_future, "http") | str_detect(link_future, "zoom")))
+     mutate(link = str_extract(link_text, "http[s]?://[^\\s]+"),
+            # TRUE if there is a mention of future online event
+            link_to_be = (str_detect(link_text, "online") | str_detect(tolower(link_text), "verkkovälitteinen")
+                          | str_detect(link_text, "http") | str_detect(link_text, "zoom")))
   
   for (i in 1:nrow(df)) {
     
@@ -95,7 +93,7 @@ write_jyu_event_records <- function() {
         df[i, "link"] <- links[hy_video]
       } 
       
-      if (is.na(hy_video) & is.na(jyu_video)) {
+      if (is.na(hy_video) & is.na(jyu_video) & df[i, "link_to_be"] == TRUE) {
         df[i, "link"] <- "https://to.be.announced"
       }
       
@@ -114,11 +112,13 @@ write_jyu_event_records <- function() {
            date_from_date = as.Date(str_extract(date, "^[^\\s]+"), "%d.%m.%Y"),
            datetime = as.POSIXct(paste(date_from_date, time_from_date), format="%Y-%m-%d %H:%M:%S"),
            datetime = as_datetime(datetime, tz = "UTC")) %>% 
-    select(-title, -title_long, -link_future, -date, -time_from_date, -date_from_date) %>% 
+    select(-title, -date) %>% 
     rename(date = datetime,
-           title = person_title) 
+           title = person_title) %>% 
+    filter(!is.na(link)) %>% 
+    select(university, id, link, title, date)
   
-  
+    
  post_it(df_tidy)
   
 }
