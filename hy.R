@@ -40,7 +40,7 @@ write_hy_event_records <- function() {
     diss_online_events <- df %>% 
       filter(type == 'Väitöstilaisuudet') %>% 
       mutate(link = str_extract(content, 'http[^"<]+')) %>% 
-      mutate(link = ifelse(str_detect(link, "urn") | str_detect(link, "juvenes"), NA, link)) %>% 
+      mutate(link = ifelse(str_detect(link, "urn") | str_detect(link, "juvenes") | str_detect(link, "doi\\.org"), NA, link)) %>% 
       filter(!is.na(link))
     
     
