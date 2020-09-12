@@ -6,7 +6,7 @@ library(lubridate)
 
 source("functions.R")
 
-# Taideyliopisto, Lappeenrannan–Lahden teknillinen yliopisto LUT
+# Lappeenrannan–Lahden teknillinen yliopisto LUT
 # and Maanpuolustuskorkeakoulu do not have future online defences ATM
 source("aalto_polite.R")
 source("hy.R") # RSS feed
@@ -18,6 +18,7 @@ source("lappi_polite.R")
 source("abo_polite.R")
 source("hanken_polite.R")
 source("uef_polite.R")
+source("taide.R")
 
 key <- Sys.getenv("airtableKey")
 airtablebase_events <- "https://api.airtable.com/v0/appd2NiVv18KsG49j/Events"
@@ -41,3 +42,4 @@ write_lappi_event_records()
 write_abo_event_records()
 write_hanken_event_records()
 write_uef_event_records()
+write_taide_event_records()
