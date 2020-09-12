@@ -27,9 +27,9 @@ write_jyu_event_records <- function() {
                                     html_text()),
                link = NA,
                link_text = str_squish(item %>% 
-                                          html_node(xpath = "descendant::p[@class='location']/span[last()]") %>% 
-                                          html_text() %>% 
-                                          tolower()),
+                                        html_node(xpath = "descendant::p[@class='location']/span[last()]") %>% 
+                                        html_text() %>% 
+                                        tolower()),
                date = str_squish(item %>% 
                                    html_node(xpath = "descendant::span[@class='date']") %>% 
                                    html_text()),
@@ -38,71 +38,50 @@ write_jyu_event_records <- function() {
   })
   
   df <- df_all %>% 
-     mutate(link = str_extract(link_text, "http[s]?://[^\\s]+"),
-            # TRUE if there is a mention of future online event
-            link_to_be = (str_detect(link_text, "online") | str_detect(tolower(link_text), "verkkovälitteinen")
-                          | str_detect(link_text, "http") | str_detect(link_text, "zoom")))
+    mutate(link = str_extract(link_text, "http[s]?://[^\\s]+"),
+           # TRUE if there is a mention of future online event
+           link_to_be = (str_detect(link_text, "online") | str_detect(tolower(link_text), "verkkovälitteinen")
+                         | str_detect(link_text, "http") | str_detect(link_text, "zoom")))
   
-  for (i in 1:nrow(df)) {
+  df_res <- df %>% 
     
-    url <- df[i, "id"]
-    
-    page <- nod(session, url) 
-    
-    # Title is usually given inside quotes, that's the best quess
-    content <- scrape(page) %>% 
-      html_nodes(xpath = "descendant::div[@id='parent-fieldname-text']") %>% 
-      html_text()
-    
-    content_tidy_quotes <- gsub('[”“]', '"', content)
-    
-    # Very hacky. Trying to select a "title-length" string
-    quoted_texts <- str_extract_all(content_tidy_quotes, '".*"')
-    
-    possible_titles <- quoted_texts %>% 
-      flatten(.) %>% 
-      keep(nchar(.) > 30 & nchar(.) < 150)
-    
-    if (length(possible_titles) == 1) {
-      df[i, "title_long"] <- as.character(possible_titles)
-    } else {
-      df[i, "title_long"] <- NA # giving up
-    }
-    
-    # Link to stream
-    if (is.na(df[i, "link"])) {
+    pmap_dfr(function(...) {
+      current <- tibble(...)
+      url <- current$id
+      page <- nod(session, url)
       
-      # Parsing all links there are on the page
-      content_nodes <- scrape(page) %>% 
-        html_nodes(xpath = "descendant::div[@id='parent-fieldname-text']") 
+      content <- scrape(page) %>%
+        html_node(xpath = "descendant::article") %>%
+        html_text()
       
-      links <- content_nodes %>% 
-        html_nodes(xpath = "descendant::a") %>% 
+      content_tidy_quotes <- gsub('[”“]', '"', content)
+      
+      # https://stackoverflow.com/a/35804434
+      # Constraint width lookbehind: 'väitöskir' precedes a string within quotes (=title) 
+      # in a distance of max 50 chars
+      title_long <- content_tidy_quotes %>% 
+        str_extract(., '(?<=väitöskir[^"]{1,20}")[^"]+')
+  
+      # Parsing all links on the page
+      links <- scrape(page) %>%
+        html_nodes(xpath = "descendant::a") %>%
         html_text()
       
       # These seem to be the top two
       hy_video <- match(1, str_detect(links, "http://video[^\\s]+"))
       jyu_video <- match(1, str_detect(links, 'https://r.jyu.fi/[^\\s]+'))
       
+      current %>% 
+        mutate(title_long = ifelse(!is.na(title_long), title_long, NA),
+               link = case_when(!is.na(link) ~ link,
+                                is.na(link) & !is.na(jyu_video) ~ links[jyu_video],
+                                is.na(link) & !is.na(hy_video) ~ links[hy_video],
+                                is.na(link) & is.na(hy_video) & is.na(jyu_video) & link_to_be == TRUE ~ "https://to.be.announced"))
       
-      if (!is.na(jyu_video)) {
-        df[i, "link"] <- links[jyu_video]
-      } 
-      
-      if (!is.na(hy_video)) {
-        df[i, "link"] <- links[hy_video]
-      } 
-      
-      if (is.na(hy_video) & is.na(jyu_video) & df[i, "link_to_be"] == TRUE) {
-        df[i, "link"] <- "https://to.be.announced"
-      }
-      
-    }
-    
-  }
+    })
   
   
-  df_tidy <- df %>% 
+  df_tidy <- df_res %>% 
     mutate(title = gsub("^Väitös: [0-9\\.\\:]+", "", title),
            person_title = ifelse(!is.na(title_long), paste0(title, " : ", title_long), title),
            person_title = gsub('["]', '', person_title),
@@ -118,7 +97,7 @@ write_jyu_event_records <- function() {
     filter(!is.na(link)) %>% 
     select(university, id, link, title, date)
   
-    
- post_it(df_tidy)
+  
+  post_it(df_tidy)
   
 }
