@@ -57,8 +57,8 @@ write_jyu_event_records <- function() {
       content_tidy_quotes <- gsub('[”“]', '"', content)
       
       # https://stackoverflow.com/a/35804434
-      # Constraint width lookbehind: 'väitöskir' precedes a string within quotes (=title) 
-      # in a distance of max 50 chars
+      # Constraint width lookbehind: 'väitöskir' precedes a quoted string (=title) 
+      # within a distance of max 20 chars
       title_long <- content_tidy_quotes %>% 
         str_extract(., '(?<=väitöskir[^"]{1,20}")[^"]+')
   
