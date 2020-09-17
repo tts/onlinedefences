@@ -36,77 +36,60 @@ write_uef_event_records <- function() {
   })
   
   df <- df %>% 
-    filter(str_detect(title, "[vV]äitös"))
+    filter(str_detect(title, "[vV]äitös")) %>% 
+    mutate(link_to_be = str_detect(title, "[vV]erkossa"))
   
-  
-  for (i in 1:nrow(df)) {
-    
-    url <- paste0("https://www.uef.fi", df[i, "id"])
-    
-    page <- nod(session, url) 
-
-    title <- scrape(page) %>% 
-      html_node(xpath = "descendant::p/descendant::em") %>% 
-      html_text()
-    
-    # If not found, can be just in quotes
-    # Note that for some reason the title of the following is not captured within the loop
-    # https://www.uef.fi/fi/tapahtuma/ytm-iiris-lehdon-vaitostilaisuus-yhteiskuntapolitiikka-joensuu-myos-verkossa
-    if (is.na(title)) {
+  df_res <- df %>% 
+    pmap_dfr(function(...) {
+      current <- tibble(...)
+      url <- paste0("https://www.uef.fi", current$id)
+      page <- nod(session, url) 
       
-      content <- scrape(page) %>% 
-        html_nodes(xpath = "descendant::p") %>% 
+      content <- scrape(page) %>%
+        html_node(xpath = "descendant::article") %>%
         html_text()
       
       content_tidy_quotes <- gsub('[”“]', '"', content)
       
-      # Very hacky. Trying to select a "title-length" string
-      quoted_texts <- str_extract_all(content_tidy_quotes, '".*"')
+      # Title is either within quotes
+      title_long_quotes <- content_tidy_quotes %>% 
+        str_extract(., '(?<=väitöskir[^"]{1,20}")[^"]+')
       
-      possible_titles <- quoted_texts %>% 
-        flatten(.) %>% 
-        keep(nchar(.) > 30 & nchar(.) < 150)
-      
-      if (length(possible_titles) == 1) {
-        df[i, "title_long"] <- as.character(possible_titles)
-      } else {
-        df[i, "title_long"] <- NA # giving up
-      }
-      
-    }
-    
-    event <- scrape(page) %>% 
-      html_node(xpath = "descendant::div[@class='grid__item']")
-    
-    time <- event %>% 
-      html_node(xpath = "dl/dt[contains(text(), 'Aika:')]/following-sibling::dd") %>% 
-      html_text()
-    
-    link <- event %>% 
-      html_node(xpath = "a") %>% 
-      html_attr("href")
-    
-    # Is there a mention about a coming stream?
-    if (is.na(link)) {
-      link_text <- event %>% 
-        html_node(xpath = "dl/dt[contains(text(), 'Tapahtumapaikka:')]/following-sibling::dd/div") %>% 
+      # or inside em element
+      title_long_em <- scrape(page) %>% 
+        html_node(xpath = "descendant::em") %>% 
         html_text()
       
-      if(str_detect(link_text, "[vV]erkossa"))
-        link <- "https://to.be.announced"
-    }
-    
-    if (!is.na(link)) {
-      df[i, "link"] <- link
-    } 
-    
-    df[i, "title_long"] <- title
-    df[i, "time"] <- time
-    
-  }
+      # Parsing all links on the page
+      links <- scrape(page) %>%
+        html_nodes(xpath = "descendant::a") %>%
+        html_attr("href") 
+      
+      # These seem to be the top two
+      uef_video <- match(1, str_detect(links, "www.uef.fi/live[^\\s]+"))
+      lsc_video <- match(1, str_detect(links, 'stream.lifesizecloud[^\\s]+'))
+      
+      event <- scrape(page) %>%
+        html_node(xpath = "descendant::div[@class='grid__item']")
+
+      time_scraped <- event %>%
+        html_node(xpath = "dl/dt[contains(text(), 'Aika:')]/following-sibling::dd") %>%
+        html_text()
+   
+      current %>% 
+        mutate(title_long = ifelse(!is.na(title_long_quotes), title_long_quotes, 
+                                   ifelse(is.na(title_long_quotes) & !is.na(title_long_em), title_long_em,
+                                                NA)),
+               time = time_scraped,
+               link = ifelse(!is.na(link), link,
+                             ifelse(is.na(link) & !is.na(uef_video), links[uef_video],
+                                    ifelse(is.na(link) & is.na(uef_video) & !is.na(lsc_video), links[lsc_video],
+                                           ifelse(is.na(link) & is.na(uef_video) & is.na(lsc_video) & link_to_be == TRUE, "https://to.be.announced",
+                                                  NA)))))
+      
+    })
   
-  
-  df <- df %>% 
+  df <- df_res %>% 
     filter(!is.na(link))
   
   df_tidy <- df %>% 
@@ -133,9 +116,12 @@ write_uef_event_records <- function() {
            date = as.Date(date, "%d.%m.%Y"),
            datetime = as.POSIXct(paste(date, time), format="%Y-%m-%d %H:%M:%S"),
            datetime = as_datetime(datetime, tz = "UTC")) %>% 
-    select(-title, -title_long, -person, -date_day, -date, -date_month, -time, -month_from_date_month) %>% 
+    select(-title, -date) %>% 
     rename(title = title_person,
-           date = datetime) 
+           date = datetime) %>% 
+    mutate(title = gsub("\\(myös verkossa\\)", "", title)) %>% 
+    select(university, id, title, date, link) %>% 
+    filter(date >= Sys.Date())
   
   
   post_it(df_tidy)
