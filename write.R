@@ -17,7 +17,7 @@ source("lappi_polite.R")
 source("abo_polite.R")
 source("hanken_polite.R")
 source("uef_polite.R")
-source("taide.R")
+source("taide_polite.R")
 source("lut_polite.R")
 
 key <- Sys.getenv("airtableKey")
