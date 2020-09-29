@@ -63,20 +63,33 @@ write_jyu_event_records <- function() {
         str_extract(., '(?<=väitöskir[^"]{1,20}")[^"]+')
   
       # Parsing all links on the page
+      # Can be link text
       links <- scrape(page) %>%
         html_nodes(xpath = "descendant::a") %>%
         html_text()
       
+      # or just href
+      links_href <- scrape(page) %>% 
+        html_nodes(xpath = "descendant::a") %>% 
+        html_attr("href")
+      
       # These seem to be the top two
-      hy_video <- match(1, str_detect(links, "http://video[^\\s]+"))
-      jyu_video <- match(1, str_detect(links, 'https://r.jyu.fi/[^\\s]+'))
+      hy_video <- match(1, str_detect(links, "://video[^\\s]+"))
+      jyu_video <- match(1, str_detect(links, '://r.jyu.fi/[^\\s]+'))
+      
+      hy_video_href <- match(1, str_detect(links_href, "://video[^\\s]+"))
+      jyu_video_href <- match(1, str_detect(links_href, '://r.jyu.fi/[^\\s]+'))
       
       current %>% 
         mutate(title_long = ifelse(!is.na(title_long), title_long, NA),
                link = case_when(!is.na(link) ~ link,
                                 is.na(link) & !is.na(jyu_video) ~ links[jyu_video],
                                 is.na(link) & !is.na(hy_video) ~ links[hy_video],
-                                is.na(link) & is.na(hy_video) & is.na(jyu_video) & link_to_be == TRUE ~ "https://to.be.announced"))
+                                is.na(link) & is.na(hy_video) & is.na(jyu_video) & !is.na(hy_video_href) ~ links_href[hy_video_href],
+                                is.na(link) & is.na(hy_video) & is.na(jyu_video) & !is.na(jyu_video_href) ~ links_href[jyu_video_href],
+                                is.na(link) & is.na(hy_video) & is.na(jyu_video) & 
+                                  is.na(hy_video_href) & is.na(jyu_video_href) & 
+                                  link_to_be == TRUE ~ "https://to.be.announced"))
       
     })
   
