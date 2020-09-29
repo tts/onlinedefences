@@ -46,7 +46,9 @@ write_abo_event_records <- function() {
         html_text()
       
       title_scraped <- scrape(page) %>% 
-        html_node(xpath = "descendant::p/descendant::em/descendant::strong") %>% 
+        html_node(xpath = "descendant::p/descendant::strong/descendant::em|
+                  descendant::p/descendant::em/descendant::strong") %>% 
+        
         html_text()
       
       content <- scrape(page) %>% 
