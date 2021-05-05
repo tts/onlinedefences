@@ -72,7 +72,7 @@ write_abo_event_records <- function() {
     mutate(title_person = paste0(title, ", ", str_squish(person), " : ", title_long),
            time = paste0(str_extract(time, "\\s[0-9]*\\.[0-9]*"), ":00"),
            time = gsub("\\.", ":", time),
-           date = as.Date(date, "%d.%m.%Y"),
+           date = as.Date(str_trim(date), "%d.%m.%Y"),
            datetime = as.POSIXct(paste(date, time), format="%Y-%m-%d %H:%M:%S"),
            datetime = as_datetime(datetime, tz = "UTC")) %>% 
     select(-title, -title_long, -person, -date, -time) %>% 
