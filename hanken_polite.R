@@ -10,8 +10,7 @@ write_hanken_event_records <- function() {
                  user_agent = "sonkkilat@gmail.com")
   
   nodes <- scrape(session) %>% 
-    html_nodes(xpath = "//div[@class='row bs-2col node node--type-calendar-item node--view-mode-teaser']")
-  
+    html_nodes(xpath = "//div[@class='p-header p-header-h5']")
   
   df <- map_df(nodes, function(item) {
     
@@ -21,24 +20,17 @@ write_hanken_event_records <- function() {
                                  html_attr("href")),
                person = NA,
                title = str_squish(item %>% 
-                                    html_node(xpath = "descendant::div[@class='p-header p-header-h6']") %>% 
+                                    html_node(xpath = "ancestor::div[@class='inline-block'][1]/div[2]") %>% 
                                     html_text()),
                link = NA,
-               date_day = str_squish(item %>% 
-                                       html_node(xpath = "descendant::div[@class='date-day']") %>% 
-                                       html_text()),
-               date_month = str_squish(item %>% 
-                                         html_node(xpath = "descendant::div[@class='date-month']") %>% 
-                                         html_text()),
-               time = str_squish(item %>% 
-                                   html_node(xpath = "descendant::div[@class='inline-block field--name-field-time']") %>% 
+               date = str_squish(item %>% 
+                                   html_node(xpath = "preceding::div[@class='inline-block'][1]/div") %>% 
                                    html_text()),
+               time = NA,
                stringsAsFactors=FALSE)
     
   })
-  
-  df <- df %>% 
-    filter(str_detect(title, "[dD]isputation"))
+
   
   df_res <- df %>% 
     
@@ -48,51 +40,32 @@ write_hanken_event_records <- function() {
       
       page <- nod(session, url) 
       
-      # TO DO check this when there are more cases
-      person_scraped <- scrape(page) %>% 
-        html_node(xpath = "descendant::p/descendant::strong") %>% 
-        html_text()
+      datetime <- scrape(page) %>% 
+        html_node(xpath = "descendant::time") %>% 
+        html_attr("datetime")
       
-      content <- scrape(page) %>% 
-        html_text()
-      
-      title_scraped <- str_match(content, "Avhandlingsmanuskriptets titel: (.*)")[1]
-      
+      video <- scrape(page) %>% 
+        html_node(xpath = "descendant::strong/a") %>% 
+        html_attr("href")
+
       current %>% 
-        mutate(title_long = title_scraped,
-               link = "https://to.be.announced",
-               person = person_scraped)
-      
+        mutate(link = ifelse(!is.na(video) & grepl("https://go.hanken.fi", video), video, "https://to.be.announced"),
+               time = datetime)
       
     })
   
   df_tidy <- df_res %>% 
     mutate(id = paste0("https://www.hanken.fi", id),
-           title_long = gsub("Avhandlingsmanuskriptets titel: ", "", title_long),
-           title_person = paste0(title, " : ", title_long),
-           time = paste0(time, ":00"),
-           # Changing switch to case-when. Switch works in this case because there is only one item
-           month_from_date_month = case_when(date_month == "Sep" ~ "09",
-                                             date_month == "Oct" ~ "10",
-                                             date_month == "Nov" ~ "11",
-                                             date_month == "Dec" ~ "12",
-                                             date_month == "Jan" ~ "01",
-                                             date_month == "Feb" ~ "02",
-                                             date_month == "Mar" ~ "03",
-                                             date_month == "Apr" ~ "04",
-                                             date_month == "May" ~ "05",
-                                             date_month == "Jun" ~ "06",
-                                             date_month == "Jul" ~ "07",
-                                             date_month == "Aug" ~ "08",
-                                             TRUE ~ "other"),
-           date = paste(date_day, month_from_date_month, year_now, sep = "."),
            date = as.Date(date, "%d.%m.%Y"),
-           datetime = as.POSIXct(paste(date, time), format="%Y-%m-%d %H:%M:%S"),
+           time_from_date = str_extract(time, "T[0-9]*:[0-9]*:[0-9]*"),
+           time_from_date = gsub("T", "", time_from_date),
+           date_from_date = as.Date(str_extract(time, "^[^T]+"), "%Y-%m-%d"),
+           datetime = as.POSIXct(paste(date_from_date, time_from_date), format="%Y-%m-%d %H:%M:%S"),
            datetime = as_datetime(datetime, tz = "UTC")) %>% 
-    select(-title, -date) %>% 
-    rename(title = title_person,
-           date = datetime) %>% 
-    select(university, id, title, date, link)
+    filter(date >= Sys.Date()) %>% 
+    select(-date) %>% 
+    rename(date = datetime) %>% 
+    select(university, id, link, title, date)
   
   
   post_it(df_tidy)
