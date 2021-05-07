@@ -19,8 +19,6 @@ write_tampere_event_records <- function() {
                id = str_squish(item %>% 
                                  html_node(xpath = "descendant::h3/a") %>% 
                                  html_attr("href")),
-               # Unless person's name is part of the title, it cannot securely be parsed
-               #person = NA,
                title = str_squish(item %>% 
                                     html_node(xpath = "descendant::h3/a") %>% 
                                     html_text()),
