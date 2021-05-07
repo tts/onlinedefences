@@ -10,17 +10,17 @@ write_tampere_event_records <- function() {
                  user_agent = "sonkkilat@gmail.com")
   
   nodes <- scrape(session) %>% 
-    html_nodes(xpath = "//div[@class = 'views-row listing__item']")
+    html_nodes(xpath = "//div[@class = 'grid__content']")
   
   
   df_all <- map_df(nodes, function(item) {
     
     data.frame(university = "Tampereen yliopisto",
                id = str_squish(item %>% 
-                                 html_node(xpath = "descendant::article") %>% 
-                                 html_attr("about")),
+                                 html_node(xpath = "descendant::h3/a") %>% 
+                                 html_attr("href")),
                # Unless person's name is part of the title, it cannot securely be parsed
-               person = NA,
+               #person = NA,
                title = str_squish(item %>% 
                                     html_node(xpath = "descendant::h3/a") %>% 
                                     html_text()),
@@ -29,42 +29,55 @@ write_tampere_event_records <- function() {
                link_future = str_squish(item %>% 
                                           html_node('.field__value.field__value--field-event-location') %>% 
                                           html_text()),
-               date = str_squish(item %>% 
-                                   html_node(xpath = "descendant::time") %>% 
-                                   html_attr("datetime")),
+               date = NA,
+               time = NA,
                stringsAsFactors=FALSE)
     
   })
   
   df <- df_all %>% 
     filter(str_detect(link_future, "[Ee]täyhtey"))
+
   
+  df_res <- df %>% 
+    pmap_dfr(function(...){
+      current <- tibble(...)
+      url <- paste0("https://www.tuni.fi", current$id)
+      
+      page <- nod(session, url)
+      
+      place_scraped <- scrape(page) %>%
+        html_node(xpath = "descendant::a[contains(@href, 'zoom') or contains(@href, 'teams')
+                  or contains(@href, 'panopto')]") %>%
+        html_attr("href")
+      
+      remDr$navigate(url)
+
+      datetime_scraped <- remDr$findElement(using = "xpath", "//div[@class='ep--date-item']")
+      datetime_scraped_char <- unlist(datetime_scraped$getElementText()) # 12.05.2021 12.00 - 16.00
+
+      date_scraped <- as.Date(str_extract(datetime_scraped_char, "^[^\\s]+"), "%d.%m.%Y")
+      time_scraped <- str_extract(datetime_scraped_char, "\\s[^\\.]+") %>% 
+        str_squish() %>% 
+        paste0(., ":00:00")
+      
+      current %>%
+        mutate(link = ifelse(is.na(place_scraped) | length(place_scraped) == 0, "https://to.be.announced",
+                             place_scraped),
+               date = date_scraped,
+               time = time_scraped)
   
-  for (i in 1:nrow(df)) {
-    
-    url <- paste0("https://www.tuni.fi", df[i, "id"])
-    
-    page <- nod(session, url)
-    
-    place <- scrape(page) %>% 
-      html_node(xpath = "descendant::a[contains(@href, 'zoom') or contains(@href, 'teams')]") %>% 
-      html_attr("href")
-    
-    if(is.na(place) | length(place) == 0) {
-      df[i, "link"] <-  "https://to.be.announced"
-    } else { 
-      df[i, "link"] <- place
-    }
-    
-  }
+    })
   
-  
-  df_tidy <- df %>% 
+  df_tidy <- df_res %>% 
     mutate(title = str_squish(title),
-           id = paste0("https://www.tuni.fi", id)) %>% 
-    select(-person, -link_future)
-  
-  
+           id = paste0("https://www.tuni.fi", id),
+           datetime = as.POSIXct(paste(date, time), format="%Y-%m-%d %H:%M:%S"),
+           datetime = as_datetime(datetime, tz = "UTC")) %>% 
+    select(-date) %>% 
+    rename(date = datetime) %>%
+    select(university, id, link, title, date) 
+
   post_it(df_tidy)
   
 }
