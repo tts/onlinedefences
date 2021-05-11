@@ -40,7 +40,7 @@ write_hanken_event_records <- function() {
       
       page <- nod(session, url) 
       
-      datetime <- scrape(page) %>% 
+      date_time <- scrape(page) %>% 
         html_node(xpath = "descendant::time") %>% 
         html_attr("datetime")
       
@@ -50,21 +50,16 @@ write_hanken_event_records <- function() {
 
       current %>% 
         mutate(link = ifelse(!is.na(video) & grepl("https://go.hanken.fi", video), video, "https://to.be.announced"),
-               time = datetime)
+               date_time = date_time)
       
     })
   
   df_tidy <- df_res %>% 
     mutate(id = paste0("https://www.hanken.fi", id),
-           date = as.Date(date, "%d.%m.%Y"),
-           time_from_date = str_extract(time, "T[0-9]*:[0-9]*:[0-9]*"),
-           time_from_date = gsub("T", "", time_from_date),
-           date_from_date = as.Date(str_extract(time, "^[^T]+"), "%Y-%m-%d"),
-           datetime = as.POSIXct(paste(date_from_date, time_from_date), format="%Y-%m-%d %H:%M:%S"),
-           datetime = as_datetime(datetime, tz = "UTC")) %>% 
-    filter(date >= Sys.Date()) %>% 
-    select(-date) %>% 
-    rename(date = datetime) %>% 
+           deftime = as.POSIXct(date_time, format="%Y-%m-%dT%H:%M:%SZ")) %>% 
+    select(-date, -time) %>% 
+    rename(date = deftime) %>% 
+    filter(date >= Sys.time()) %>% 
     select(university, id, link, title, date)
   
   
